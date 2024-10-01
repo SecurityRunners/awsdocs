@@ -1,0 +1,119 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Trigger on version tags like v1.0.0
+
+jobs:
+  build:
+    name: Build for Multiple Architectures
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+        # Exclude incompatible OS/Arch combinations
+        exclude:
+          - goos: windows
+            goarch: arm64
+
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20' # Specify the Go version
+
+      - name: Cache Go Modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install Dependencies
+        run: go mod download
+
+      - name: Build Binary
+        run: |
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}
+
+      - name: Archive Binary
+        run: |
+          zip awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}.zip awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}.zip
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: awsdocs-linux-amd64, awsdocs-linux-arm64, awsdocs-darwin-amd64, awsdocs-darwin-arm64, awsdocs-windows-amd64
+          path: .
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Linux amd64 Release Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: awsdocs-linux-amd64.zip
+          asset_name: awsdocs-linux-amd64.zip
+          asset_content_type: application/zip
+
+      - name: Upload Linux arm64 Release Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: awsdocs-linux-arm64.zip
+          asset_name: awsdocs-linux-arm64.zip
+          asset_content_type: application/zip
+
+      - name: Upload Darwin amd64 Release Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: awsdocs-darwin-amd64.zip
+          asset_name: awsdocs-darwin-amd64.zip
+          asset_content_type: application/zip
+
+      - name: Upload Darwin arm64 Release Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: awsdocs-darwin-arm64.zip
+          asset_name: awsdocs-darwin-arm64.zip
+          asset_content_type: application/zip
+
+      - name: Upload Windows amd64 Release Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: awsdocs-windows-amd64.zip
+          asset_name: awsdocs-windows-amd64.zip
+          asset_content_type: application/zip
