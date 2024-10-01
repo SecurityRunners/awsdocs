@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*.*.*' # Trigger on version tags like v1.0.0
+      - 'v*.*.*'
 
 jobs:
   build:
@@ -13,7 +13,6 @@ jobs:
       matrix:
         goos: [linux, darwin, windows]
         goarch: [amd64, arm64]
-        # Exclude incompatible OS/Arch combinations
         exclude:
           - goos: windows
             goarch: arm64
@@ -26,17 +25,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.23' # Specify the Go version
-
-      - name: Cache Go Modules
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          go-version: '1.23'
 
       - name: Install Dependencies
         run: go mod download
