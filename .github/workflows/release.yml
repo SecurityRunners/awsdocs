@@ -2,69 +2,32 @@ name: Release awsdocs
 
 on:
   release:
-    types: [published]
-    tags:
-      - "v*.*.*"
+    types: [created]
+
+permissions:
+    contents: write
+    packages: write
 
 jobs:
-  build:
-    name: Build binaries for multiple platforms
+  releases-matrix:
+    name: Release Go Binary
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
+        goos: [linux, windows, darwin]
+        goarch: ["386", amd64, arm64]
         exclude:
-          - goos: windows
-            goarch: arm64  # Skip arm64 for Windows as it's not supported natively
-
+          - goarch: "386"
+            goos: darwin
+          - goarch: arm64
+            goos: windows
     steps:
-      # Step 1: Check out the repository
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      # Step 2: Set up Go environment
-      - name: Set up Go 1.23
-        uses: actions/setup-go@v4
-        with:
-          go-version: 1.23
-
-      # Step 3: Build the binary
-      - name: Build binary
-        run: |
-          mkdir -p dist
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o dist/awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}
-
-      # Step 4: Upload the built binary as an artifact with correct naming
-      - name: Upload binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: dist/awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}
-
-  release:
-    name: Upload Release Assets
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      # Step 5: Download all the built binaries (matching artifacts) from the previous job
-      - name: Download binaries
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-
-      # Step 6: Compress binaries for release
-      - name: Compress binaries
-        run: |
-          cd dist
-          for file in *; do
-            tar -czvf $file.tar.gz $file
-          done
-
-      # Step 7: Upload compressed binaries to GitHub Release using softprops/action-gh-release
-      - name: Upload release assets
-        uses: softprops/action-gh-release@v1
-        with:
-          files: dist/*.tar.gz
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: actions/checkout@v3
+    - uses: wangyoucao577/go-release-action@v1.51
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        goos: ${{ matrix.goos }}
+        goarch: ${{ matrix.goarch }}
+        goversion: "https://dl.google.com/go/go1.23.linux-amd64.tar.gz"
+        project_path: "."
+        binary_name: "awsdocs"
