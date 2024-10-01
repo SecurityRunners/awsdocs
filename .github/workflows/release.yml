@@ -1,4 +1,4 @@
-name: Release awsdocs
+name: Release Go Binary
 
 on:
   release:
@@ -22,12 +22,12 @@ jobs:
           - goarch: arm64
             goos: windows
     steps:
-    - uses: actions/checkout@v3
-    - uses: wangyoucao577/go-release-action@v1.51
+    - uses: actions/checkout@v4
+    - uses: wangyoucao577/go-release-action@v1
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         goos: ${{ matrix.goos }}
         goarch: ${{ matrix.goarch }}
-        goversion: "https://dl.google.com/go/go1.23.linux-amd64.tar.gz"
-        project_path: "."
+        goversion: "https://go.dev/dl/go1.23.2.darwin-amd64.tar.gz"
         binary_name: "awsdocs"
+        extra_files: README.md
