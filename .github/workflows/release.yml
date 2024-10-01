@@ -11,11 +11,25 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
+        include:
+          - goos: linux
+            goarch: amd64
+            runs-on: ubuntu-latest
+          - goos: linux
+            goarch: arm64
+            runs-on: ubuntu-latest
+          - goos: darwin
+            goarch: amd64
+            runs-on: macos-latest
+          - goos: darwin
+            goarch: arm64
+            runs-on: macos-latest
+          - goos: windows
+            goarch: amd64
+            runs-on: windows-latest
         exclude:
           - goos: windows
-            goarch: arm64
+            goarch: arm64 # Still exclude this combo
 
     steps:
       - name: Checkout Code
@@ -31,11 +45,15 @@ jobs:
 
       - name: Build Binary
         run: |
-          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}
+          suffix=""
+          if [ "${{ matrix.goos }}" == "windows" ]; then
+            suffix=".exe"
+          fi
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}${suffix}
 
       - name: Archive Binary
         run: |
-          zip awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}.zip awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}
+          zip awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}.zip awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}${suffix}
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v3
@@ -58,7 +76,7 @@ jobs:
             awsdocs-darwin-amd64
             awsdocs-darwin-arm64
             awsdocs-windows-amd64
-          path: .
+        path: .
 
       - name: Create Release
         id: create_release
