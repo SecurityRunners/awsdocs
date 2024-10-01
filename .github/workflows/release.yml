@@ -37,7 +37,7 @@ jobs:
 
       # Step 4: Upload the built binary as an artifact
       - name: Upload binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}
@@ -49,17 +49,15 @@ jobs:
     steps:
       # Step 5: Download the built binaries from the previous job
       - name: Download binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist
 
-      # Step 6: Upload binaries to the GitHub Release
-      - name: Upload binaries to release
-        uses: actions/upload-release-asset@v3
+      # Step 6: Upload binaries to the GitHub Release as actions/upload-release-asset is unmaintained
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v1
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          release_id: ${{ github.event.release.id }}
-          asset_path: dist/awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}
-          asset_name: awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
-          asset_content_type: application/gzip
+          files: dist/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
