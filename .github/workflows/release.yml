@@ -35,7 +35,7 @@ jobs:
           mkdir -p dist
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o dist/awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}
 
-      # Step 4: Upload the built binary as an artifact
+      # Step 4: Upload the built binary as an artifact with correct naming
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
@@ -47,14 +47,21 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      # Step 5: Download the built binaries from the previous job
+      # Step 5: Download all the built binaries (matching artifacts) from the previous job
       - name: Download binaries
         uses: actions/download-artifact@v4
         with:
-          name: awsdocs-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist
 
-      # Step 6: Upload binaries to the GitHub Release as actions/upload-release-asset is unmaintained
+      # Step 6: Compress binaries for release
+      - name: Compress binaries
+        run: |
+          cd dist
+          for file in *; do
+            tar -czvf $file.tar.gz $file
+          done
+
+      # Step 7: Upload compressed binaries to GitHub Release using softprops/action-gh-release
       - name: Upload release assets
         uses: softprops/action-gh-release@v1
         with:
