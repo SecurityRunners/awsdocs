@@ -17,9 +17,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
-	"github.com/slyrz/warc"
 )
 
 const (
@@ -139,7 +136,7 @@ func main() {
 		go func() {
 			defer wg.Done()
 			for url := range urlChannel {
-				downloadAndSaveAsWARC(url)
+				downloadAndSaveAsHTML(url)
 				// If rate limiting is enabled, sleep between requests
 				if rateLimitEnabled {
 					time.Sleep(rateLimitDelay) // Delay between requests if rate limiting is enabled
@@ -308,12 +305,12 @@ func fetchWithRateLimitHandling(url string) (*http.Response, error) {
 	return nil, fmt.Errorf("max retries exceeded for URL %s", url)
 }
 
-func downloadAndSaveAsWARC(url string) {
+func downloadAndSaveAsHTML(url string) {
 	// Get the current date
 	now := time.Now()
 	datePath := filepath.Join(
 		// Adding year, month, and day to the directory path
-		"aws_warcs",
+		"aws_html",
 		now.Format("2006"), // Year
 		now.Format("01"),   // Month
 		now.Format("02"),   // Day
@@ -321,29 +318,24 @@ func downloadAndSaveAsWARC(url string) {
 
 	// Remove the protocol part (https://) and construct the URL-based directory structure
 	trimmedURL := strings.TrimPrefix(url, "https://")
-	dirPath := filepath.Join(datePath, filepath.Dir(trimmedURL))
 
-	// Create the directory structure based on the date and URL
+	// Determine the directory path and file name
+	var dirPath, htmlFilePath string
+	if strings.HasSuffix(trimmedURL, "/") {
+		dirPath = filepath.Join(datePath, trimmedURL)
+		htmlFilePath = filepath.Join(dirPath, "index.html")
+	} else {
+		dirPath = filepath.Join(datePath, filepath.Dir(trimmedURL))
+		fileName := filepath.Base(trimmedURL)
+		htmlFilePath = filepath.Join(dirPath, fileName)
+	}
+
+	// Create the directory structure
 	err := os.MkdirAll(dirPath, 0755)
 	if err != nil {
 		log.Printf("Error creating directory: %v", err)
 		return
 	}
-
-	// Use the last part of the URL as the file name (with .html removed)
-	fileName := filepath.Base(strings.TrimSuffix(trimmedURL, ".html"))
-	warcFilePath := filepath.Join(dirPath, fileName+".warc")
-
-	// Create the WARC file
-	warcFile, err := os.Create(warcFilePath)
-	if err != nil {
-		log.Printf("Error creating WARC file: %v", err)
-		return
-	}
-	defer warcFile.Close()
-
-	// Initialize WARC writer
-	warcWriter := warc.NewWriter(warcFile)
 
 	// Fetch document
 	log.Printf("Downloading document: %s\n", url)
@@ -354,44 +346,19 @@ func downloadAndSaveAsWARC(url string) {
 	}
 	defer resp.Body.Close()
 
-	// Create WARC request record
-	reqRecord := warc.NewRecord()
-	reqRecord.Header.Set("WARC-Type", "request")
-	reqRecord.Header.Set("Content-Type", "application/http;msgtype=request")
-	reqRecord.Header.Set("WARC-Target-URI", url)
-	reqRecord.Header.Set("WARC-Date", time.Now().UTC().Format(time.RFC3339))
-	reqRecord.Header.Set("WARC-Record-ID", "<urn:uuid:"+uuid.New().String()+">")
-	reqRecord.Content = strings.NewReader("")
-
-	// Write request to WARC
-	_, err = warcWriter.WriteRecord(reqRecord)
-	if err != nil {
-		log.Printf("Error writing WARC request record: %v", err)
-		return
-	}
-
-	// Create WARC response record
-	respBody := new(strings.Builder)
-	_, err = io.Copy(respBody, resp.Body) // Safely read the response body
+	// Read the response body
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("Error reading response body: %v", err)
 		return
 	}
 
-	respRecord := warc.NewRecord()
-	respRecord.Header.Set("WARC-Type", "response")
-	respRecord.Header.Set("Content-Type", "application/http;msgtype=response")
-	respRecord.Header.Set("WARC-Target-URI", url)
-	respRecord.Header.Set("WARC-Date", time.Now().UTC().Format(time.RFC3339))
-	respRecord.Header.Set("WARC-Record-ID", "<urn:uuid:"+uuid.New().String()+">")
-	respRecord.Content = strings.NewReader(respBody.String()) // Use the body content
-
-	// Write response to WARC
-	_, err = warcWriter.WriteRecord(respRecord)
+	// Write to file
+	err = os.WriteFile(htmlFilePath, bodyBytes, 0644)
 	if err != nil {
-		log.Printf("Error writing WARC response record: %v", err)
+		log.Printf("Error writing HTML file: %v", err)
 		return
 	}
 
-	log.Printf("Successfully saved WARC file: %s\n", warcFilePath)
+	log.Printf("Successfully saved HTML file: %s\n", htmlFilePath)
 }
