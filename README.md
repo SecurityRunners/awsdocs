@@ -15,7 +15,7 @@ This tool allows you to be able to retrieve all documentation for AWS providing 
 The following command allows you to be able to retrieve all the documentation in `aws_warcs/YYYY/MM/DD`.
 
 ```bash
-awsdocs --rate-limit --workers 50 -logfile=awsdocs.log
+awsdocs --rate-limit --workers 15 -logfile=awsdocs.log
 ```
 
 ## Searching
